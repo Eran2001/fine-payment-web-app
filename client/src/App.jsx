@@ -29,6 +29,7 @@ import OfficerProtectedRoute from "./components/ProtectedRoute/OfficerProtectedR
 import OfficerOverview from "./Officers/OfficerOverview";
 import OfficerIssueFine from "./Officers/OfficerIssueFine";
 import OfficerIssues from "./Officers/OfficerIssues";
+import AllFines from "./Officers/AllFines";
 import PostOfficeLogin from "./pages/PostOffices/PostOfficeLogin";
 import PostOfficeDashboard from "./pages/PostOffices/PostOfficeDashboard";
 import PostOfficeOverview from "./pages/PostOffices/PostOfficeOverview";
@@ -84,7 +85,7 @@ const App = () => {
         >
           <Route index element={<OfficerOverview />} />
           <Route path="officer-overview" element={<OfficerOverview />} />
-          <Route path="fines" element={<Fines />} />
+          <Route path="fines" element={<AllFines />} />
           <Route path="issue-fine" element={<OfficerIssueFine />} />
           <Route path="manage-issues" element={<OfficerIssues />} />
         </Route>

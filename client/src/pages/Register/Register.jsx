@@ -1,9 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaUser, FaEnvelope, FaIdCard, FaPhone, FaUserPlus } from "react-icons/fa";
+import {
+  FaUser,
+  FaEnvelope,
+  FaIdCard,
+  FaPhone,
+  FaUserPlus,
+} from "react-icons/fa";
 import Navbar from "../../components/Navbar/Navbar";
 import { Link } from "react-router-dom";
-import BASE_URL from '../../config';
+import BASE_URL from "../../config";
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -24,6 +30,18 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const licensePattern = /^(B\d{7}|\d{9}[VX])$/;
+    if (!licensePattern.test(formData.licenseID)) {
+      alert("Invalid License ID!");
+      return;
+    }
+
+    const phonePattern = /^07\d{8}$/;
+    if (!phonePattern.test(formData.phone_number)) {
+      alert("Invalid phone number!");
+      return;
+    }
+
     try {
       const response = await fetch(`${BASE_URL}/api/register`, {
         method: "POST",
@@ -35,7 +53,7 @@ const Register = () => {
 
       if (response.ok) {
         navigate("/login");
-        alert("Successfully Login")
+        alert("Successfully Login");
       } else {
         alert("Submission failed. Please try again.");
       }
@@ -52,7 +70,7 @@ const Register = () => {
       <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
       <div className="absolute top-0 -right-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
       <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-      
+
       <div className="relative">
         <h1 className="text-5xl font-bold text-center mt-10 mb-12 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 animate-gradient-x drop-shadow-sm flex items-center justify-center gap-4">
           <FaUserPlus className="text-blue-600" />
@@ -76,6 +94,7 @@ const Register = () => {
                   onChange={handleChange}
                   className="block w-full h-12 px-5 py-3 bg-white leading-7 text-base font-normal text-gray-800 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-300"
                   required
+                  placeholder="Enter your first name"
                 />
               </div>
               <div className="w-full relative group">
@@ -89,6 +108,7 @@ const Register = () => {
                   onChange={handleChange}
                   className="block w-full h-12 px-5 py-3 bg-white leading-7 text-base font-normal text-gray-800 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-300"
                   required
+                  placeholder="Enter your last name"
                 />
               </div>
             </div>
@@ -104,6 +124,7 @@ const Register = () => {
                 onChange={handleChange}
                 className="block w-full h-12 px-5 py-3 bg-white leading-7 text-base font-normal text-gray-800 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-300"
                 required
+                placeholder="Enter your email address"
               />
             </div>
 
@@ -112,12 +133,13 @@ const Register = () => {
                 <FaIdCard className="text-blue-500" /> License ID
               </label>
               <input
-                type="number"
+                type="text"
                 name="licenseID"
                 value={formData.licenseID}
                 onChange={handleChange}
                 className="block w-full h-12 px-5 py-3 bg-white leading-7 text-base font-normal text-gray-800 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-300"
                 required
+                placeholder="Enter your license ID"
               />
             </div>
 
@@ -132,6 +154,7 @@ const Register = () => {
                 onChange={handleChange}
                 className="block w-full h-12 px-5 py-3 bg-white leading-7 text-base font-normal text-gray-800 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all duration-300"
                 required
+                placeholder="Enter your phone number"
               />
             </div>
 
@@ -145,7 +168,10 @@ const Register = () => {
             </button>
             <p className="mt-6 text-sm text-gray-600 text-center">
               Already registered?{" "}
-              <Link to="/login" className="text-blue-600 hover:text-indigo-600 font-medium hover:underline transition-colors duration-300">
+              <Link
+                to="/login"
+                className="text-blue-600 hover:text-indigo-600 font-medium hover:underline transition-colors duration-300"
+              >
                 Login here
               </Link>
             </p>

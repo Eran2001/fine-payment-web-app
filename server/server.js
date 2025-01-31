@@ -38,7 +38,29 @@ app.post("/api/register", async (req, res) => {
     return res.status(400).json({ error: "All fields are required" });
   }
 
+  // License ID validation
+  const licensePattern = /^(B\d{7}|\d{9}[VX])$/;
+  if (!licensePattern.test(licenseID)) {
+    return res.status(400).json({ error: "Invalid License ID format" });
+  }
+
+  // Phone number validation
+  const phonePattern = /^07\d{8}$/;
+  if (!phonePattern.test(phone_number)) {
+    return res.status(400).json({ error: "Invalid Sri Lankan phone number" });
+  }
+
   try {
+    const checkEmail = "SELECT * FROM citizens WHERE email = $1";
+    const emailResult = await pool.query(checkEmail, [email]);
+
+    if (emailResult.rows.length > 0) {
+      return res.status(400).json({
+        error: "Email already exists",
+        message: "The provided email is already registered.",
+      });
+    }
+
     const checkLicense = "SELECT * FROM citizens WHERE license_id = $1";
     const licenseResult = await pool.query(checkLicense, [licenseID]);
 
@@ -133,12 +155,109 @@ app.get("/api/admin-dashboard", authenticateAdminToken, (req, res) => {
 });
 
 //admin-dashboard
-//fines
+//get all fines
 app.get("/api/fines", async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM fines");
+    const result = await pool.query("SELECT * FROM all_fines");
     res.json(result.rows);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// add a new fine
+app.post("/api/fines", async (req, res) => {
+  const { name, type, fine } = req.body;
+
+  if (!name || !type || !fine) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+
+  try {
+    const result = await pool.query(
+      "INSERT INTO all_fines (name, type, fine) VALUES ($1, $2, $3) RETURNING *",
+      [name, type, fine]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update an existing fine (full update)
+app.put("/api/fines/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { name, type, fine } = req.body;
+
+  try {
+    const result = await pool.query(
+      "UPDATE all_fines SET name = $1, type = $2, fine = $3 WHERE fine_id = $4 RETURNING *",
+      [name, type, fine, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Fine not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error updating fine:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Partially update a fine
+app.patch("/api/fines/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const fields = [];
+  const values = [];
+  let query = "UPDATE all_fines SET ";
+
+  Object.keys(req.body).forEach((key, index) => {
+    fields.push(`${key} = $${index + 1}`);
+    values.push(req.body[key]);
+  });
+
+  if (fields.length === 0) {
+    return res.status(400).json({ error: "No fields provided for update" });
+  }
+
+  query +=
+    fields.join(", ") + ` WHERE fine_id = $${values.length + 1} RETURNING *`;
+  values.push(id);
+
+  try {
+    console.log("Executing query:", query, values);
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Fine not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error updating fine:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Remove a fine
+app.delete("/api/fines/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+
+  try {
+    const result = await pool.query(
+      "DELETE FROM all_fines WHERE fine_id = $1 RETURNING *",
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Fine not found" });
+    }
+
+    res.json({ message: "Fine deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting fine:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -147,6 +266,15 @@ app.get("/api/fines", async (req, res) => {
 // Create a new officer
 app.post("/api/officers", async (req, res) => {
   const { batch_number, name, email, password, contact } = req.body;
+
+  // const phonePattern = /^07\d{8}$/;
+  // if (!phonePattern.test(contact)) {
+  //   return res.status(400).json({
+  //     error: "Invalid contact number",
+  //     message: "Contact number must start with 07 and be 10 digits long.",
+  //   });
+  // }
+
   try {
     const result = await pool.query(
       "INSERT INTO officers (batch_number, name, email, password, contact) VALUES ($1, $2, $3, $4, $5) RETURNING *",
@@ -397,17 +525,11 @@ app.post("/api/fines", async (req, res) => {
   } = req.body;
 
   try {
-    // Ensure the citizen exists in the citizens table
+    // Check if citizen exists
     const citizenResult = await pool.query(
       "SELECT * FROM citizens WHERE license_id = $1 OR email = $2",
       [licenseId, email]
     );
-
-    if (citizenResult.rows.length > 0) {
-      return res
-        .status(400)
-        .send("Citizen with the same license_id or email already exists.");
-    }
 
     if (citizenResult.rows.length === 0) {
       // If the citizen doesn't exist, insert them
@@ -440,8 +562,8 @@ A new fine has been issued to you with the following details:
 
 Please address this fine at your earliest convenience.
 
-visit our website - https://fine-app-react.vercel.app/
-(use your email and license ID to login)
+Visit our website - https://fine-app-react.vercel.app/
+(use your email and license ID to log in)
 
 Regards,
 Fine.lk`,
