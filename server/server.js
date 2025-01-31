@@ -4,6 +4,8 @@ const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 const cors = require("cors");
 require("dotenv").config();
+const cron = require("node-cron");
+const dayjs = require("dayjs");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -657,6 +659,103 @@ app.post("/api/contact", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).send("Error sending email");
+  }
+});
+
+// reminder email
+cron.schedule("0 0 * * *", async () => {
+  console.log("Running scheduled fine check...");
+
+  try {
+    // Get fines older than 14 days (warning email)
+    const warningFines = await pool.query(
+      "SELECT * FROM officerfines WHERE created_at = CURRENT_DATE - INTERVAL '14 days'"
+    );
+
+    // Send warning emails
+    for (const fine of warningFines.rows) {
+      const user = await pool.query(
+        "SELECT * FROM citizens WHERE license_id = $1",
+        [fine.license_id]
+      );
+
+      if (user.rows.length > 0) {
+        const email = user.rows[0].email;
+
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: email,
+          subject: "Fine Payment Reminder",
+          text: `Dear ${user.rows[0].first_name},
+
+This is a reminder that your fine (ID: ${fine.id}) issued on ${dayjs(
+            fine.created_at
+          ).format("YYYY-MM-DD")} is due in 7 days.
+
+Fine Details:
+- Type: ${fine.fine_type}
+- Amount: Rs.${fine.fine_amount}
+
+Please pay before the due date to avoid legal action.
+
+Visit our website: https://fine-app-react.vercel.app/
+
+Regards,
+Fine.lk`,
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`Warning email sent to ${email}`);
+      }
+    }
+
+    // Get fines older than 22 days (court email)
+    const courtFines = await pool.query(
+      "SELECT * FROM officerfines WHERE created_at = CURRENT_DATE - INTERVAL '22 days'"
+    );
+
+    // Send court notice emails
+    for (const fine of courtFines.rows) {
+      const user = await pool.query(
+        "SELECT * FROM citizens WHERE license_id = $1",
+        [fine.license_id]
+      );
+
+      if (user.rows.length > 0) {
+        const email = user.rows[0].email;
+
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: email,
+          subject: "Court Summons - Unpaid Fine",
+          text: `Dear ${user.rows[0].first_name},
+
+You have failed to pay your fine (ID: ${fine.id}) issued on ${dayjs(
+            fine.created_at
+          ).format("YYYY-MM-DD")}. 
+
+You are now required to appear in court on ${dayjs()
+            .add(7, "days")
+            .format(
+              "YYYY-MM-DD"
+            )}. Failure to appear may result in further legal action.
+
+Fine Details:
+- Type: ${fine.fine_type}
+- Amount: Rs.${fine.fine_amount}
+
+Please contact us if you need assistance.
+
+Regards,
+Fine.lk`,
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`Court notice email sent to ${email}`);
+      }
+    }
+  } catch (err) {
+    console.error("Error sending scheduled emails:", err);
   }
 });
 
